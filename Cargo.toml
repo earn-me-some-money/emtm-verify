@@ -5,6 +5,18 @@ authors = ["Miguel Chan <vvchan@outlook.com>"]
 edition = "2018"
 
 [dependencies]
-tensorflow = "0.13.0"
-
+actix-web = {version = "1.0.0-rc", features = ["ssl"] }
+actix-rt = "0.2.2"
+futures = "0.1.25"
+serde = "1.0"
+serde_json = "1.0"
+dotenv = "0.9.0"
+log = "0.4.6"
+pretty_env_logger = "0.3.0"
+md-5 = "0.8.0"
+rand = "0.6.5"
+hex = "0.3.2"
+chrono = "0.4.6"
+base64 = "0.10.1"
+image = "0.21.1"
 

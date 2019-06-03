@@ -3,6 +3,6 @@
 
 ## Build
 ```shell
-TF_RUST_DOWNLOAD_DIR=download cargo build
+cargo build
 ```
 
