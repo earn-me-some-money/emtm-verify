@@ -1,0 +1,10 @@
+[package]
+name = "emtm-verify"
+version = "0.1.0"
+authors = ["Miguel Chan <vvchan@outlook.com>"]
+edition = "2018"
+
+[dependencies]
+tensorflow = "0.13.0"
+
+
