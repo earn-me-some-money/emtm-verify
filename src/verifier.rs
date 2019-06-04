@@ -7,7 +7,7 @@ use std::collections::BTreeMap;
 use std::env;
 
 use actix_rt::System;
-use actix_web::client::Client;
+use actix_web::client::{Client, SendRequestError};
 use futures::{future::lazy, Future};
 
 use log::*;
@@ -29,7 +29,7 @@ pub enum VerifierError {
     /// Failed to encode image data
     JpegEncodeError(std::io::Error),
     /// Failed to connect to api server
-    ApiServerConnectionError,
+    ApiServerConnectionError(SendRequestError),
     /// Server returns error message
     ServerResponseError(String),
     /// Api server internal error
@@ -205,8 +205,8 @@ impl Verifier {
                 .set_header("Content-Type", "application/x-www-form-urlencoded")
                 .send_form(form)
                 .map_err(|error| {
-                    println!("Error {:?} when requesting api", error);
-                    VerifierError::ApiServerConnectionError
+                    warn!("Error {:?} when requesting api", error);
+                    VerifierError::ApiServerConnectionError(error)
                 })
                 .and_then(|mut response| {
                     debug!("Response header: {:?}", response);
