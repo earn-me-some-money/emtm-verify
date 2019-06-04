@@ -204,7 +204,7 @@ impl Verifier {
                 .set_header("Content-Type", "application/x-www-form-urlencoded")
                 .send_form(form)
                 .map_err(|error| {
-                    warn!("Error {:?} when requesting api", error);
+                    println!("Error {:?} when requesting api", error);
                     VerifierError::ApiServerConnectionError
                 })
                 .and_then(|mut response| {
