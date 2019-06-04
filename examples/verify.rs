@@ -4,7 +4,7 @@ use std::io::Read;
 
 fn main() {
     let mut image_data = vec![];
-    std::fs::File::open("../../card.jpg")
+    std::fs::File::open("../card/card.jpg")
         .unwrap()
         .read_to_end(&mut image_data)
         .unwrap();
@@ -12,6 +12,6 @@ fn main() {
 
     println!(
         "{:?}",
-        v.verify(&image_data, "中山大学", Some("16340000"))
+        v.verify(&image_data, "中山大学", Some("16340025"))
     );
 }
