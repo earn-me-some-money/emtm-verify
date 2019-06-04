@@ -69,6 +69,7 @@ static OCR_URL: &str = "https://api.ai.qq.com/fcgi-bin/ocr/ocr_bcocr";
 impl Verifier {
     pub fn new() -> Self {
         dotenv().ok();
+        openssl_probe::init_ssl_cert_env_vars();
         let app_id_str = env::var("TENCENT_APP_ID").expect("TENCENT_APP_ID must be set.");
         let app_id = app_id_str
             .parse::<u64>()

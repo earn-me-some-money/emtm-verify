@@ -5,6 +5,8 @@ authors = ["Miguel Chan <vvchan@outlook.com>"]
 edition = "2018"
 
 [dependencies]
+openssl = { version = "0.10", features = ["vendored"] }
+openssl-probe = "0.1.2"
 actix-web = {version = "1.0.0-rc", features = ["ssl", "client"] }
 actix-rt = "0.2.2"
 futures = "0.1.25"
