@@ -9,9 +9,8 @@ fn main() {
         .read_to_end(&mut image_data)
         .unwrap();
     let v = Verifier::new();
-
-    println!(
-        "{:?}",
+    let result = actix_rt::System::new("run").block_on(futures::lazy(|| {
         v.verify(&image_data, "中山大学", Some("16340025"))
-    );
+    }));
+    println!("{:?}", result);
 }

@@ -6,9 +6,8 @@ use rand::random;
 use std::collections::BTreeMap;
 use std::env;
 
-use actix_rt::System;
 use actix_web::client::{Client, SendRequestError};
-use futures::{future::lazy, Future};
+use futures::Future;
 
 use log::*;
 use serde::*;
@@ -97,11 +96,11 @@ impl Verifier {
         image_data: &[u8],
         institute: &str,
         student_id: Option<&str>,
-    ) -> Result<(), VerifierError> {
+    ) -> Box<Future<Item = (), Error = VerifierError>> {
         let mut img = match image::load_from_memory(image_data) {
             Ok(img) => img,
             Err(e) => {
-                return Err(VerifierError::ImageDataError(e));
+                return Box::new(futures::future::err(VerifierError::ImageDataError(e)));
             }
         };
 
@@ -121,7 +120,7 @@ impl Verifier {
         if let Err(e) =
             jpeg_encoder.encode(&img.raw_pixels(), img.width(), img.height(), img.color())
         {
-            return Err(VerifierError::JpegEncodeError(e));
+            return Box::new(futures::future::err(VerifierError::JpegEncodeError(e)));
         }
         let base64_image = base64::encode(&jpeg_data);
 
@@ -156,72 +155,81 @@ impl Verifier {
             sign: md5_hash,
         };
 
-        let api_response = Self::api_request(&form)?;
-        debug!("response: {}", api_response);
-
-        let ocr_result: ResponseParams = match serde_json::from_str(&api_response) {
-            Ok(r) => r,
-            Err(e) => {
-                debug!("failed to parse json: {}", e);
-                return Err(VerifierError::ApiServerError(
-                    "Failed to parse API server response.".to_string(),
-                ));
-            }
+        let sid = match student_id {
+            Some(id) => Some(id.to_owned()),
+            None => None,
         };
+        let institute = institute.to_owned();
 
-        if ocr_result.ret != 0 {
-            return Err(VerifierError::ServerResponseError(ocr_result.msg));
-        }
+        let ret = Self::api_request(&form)
+            .map_err(|err| err)
+            .and_then(move |api_response| {
+                debug!("response: {}", api_response);
 
-        let mut institute_match = false;
-        let mut id_match = student_id.is_none();
-        for item in ocr_result.data.item_list {
-            if item.itemstring == institute {
-                institute_match = true;
-            }
-            if student_id.is_some() && item.itemstring == student_id.unwrap() {
-                id_match = true;
-            }
-        }
+                let ocr_result: ResponseParams = match serde_json::from_str(&api_response) {
+                    Ok(r) => r,
+                    Err(e) => {
+                        debug!("failed to parse json: {}", e);
+                        return Err(VerifierError::ApiServerError(
+                            "Failed to parse API server response.".to_string(),
+                        ));
+                    }
+                };
 
-        if !institute_match {
-            Err(VerifierError::InstituteNotMatch)
-        } else if !id_match {
-            Err(VerifierError::StudentIdNotMatch)
-        } else {
-            Ok(())
-        }
+                if ocr_result.ret != 0 {
+                    return Err(VerifierError::ServerResponseError(ocr_result.msg));
+                }
+
+                let mut institute_match = false;
+                let mut id_match = sid.is_none();
+                for item in ocr_result.data.item_list {
+                    if item.itemstring == institute {
+                        institute_match = true;
+                    }
+                    if sid.as_ref().is_some() && &item.itemstring == sid.as_ref().unwrap() {
+                        id_match = true;
+                    }
+                }
+
+                if !institute_match {
+                    Err(VerifierError::InstituteNotMatch)
+                } else if !id_match {
+                    Err(VerifierError::StudentIdNotMatch)
+                } else {
+                    Ok(())
+                }
+            });
+        Box::new(ret)
     }
 
-    fn api_request(form: &RequestForm) -> Result<String, VerifierError> {
-        System::new("api").block_on(lazy(|| {
-            let mut client_builder = Client::build();
-            client_builder = client_builder.timeout(Duration::from_secs(20));
-            //            client_builder = client_builder.disable_timeout();
-            let client = client_builder.finish();
+    fn api_request(form: &RequestForm) -> Box<Future<Item = String, Error = VerifierError>> {
+        let mut client_builder = Client::build();
+//        client_builder = client_builder.timeout(Duration::from_secs(20));
+        client_builder = client_builder.disable_timeout();
+        let client = client_builder.finish();
 
-            client
-                .post(OCR_URL)
-                .set_header("Content-Type", "application/x-www-form-urlencoded")
-                .send_form(form)
-                .map_err(|error| {
-                    warn!("Error {:?} when requesting api", error);
-                    VerifierError::ApiServerConnectionError(error)
-                })
-                .and_then(|mut response| {
-                    debug!("Response header: {:?}", response);
-                    use actix_web::http::StatusCode;
-                    match response.status() {
-                        StatusCode::OK => match response.body().wait() {
-                            Ok(item) => Ok(String::from_utf8_lossy(&item[..]).into_owned()),
-                            Err(e) => Err(VerifierError::ServerResponseError(e.to_string())),
-                        },
-                        _ => Err(VerifierError::ApiServerError(format!(
-                            "Server response code {}",
-                            response.status()
-                        ))),
-                    }
-                })
-        }))
+        let ret = client
+            .post(OCR_URL)
+            .set_header("Content-Type", "application/x-www-form-urlencoded")
+            .send_form(form)
+            .map_err(|error| {
+                warn!("Error {:?} when requesting api", error);
+                VerifierError::ApiServerConnectionError(error)
+            })
+            .and_then(|mut response| {
+                debug!("Response header: {:?}", response);
+                use actix_web::http::StatusCode;
+                match response.status() {
+                    StatusCode::OK => match response.body().wait() {
+                        Ok(item) => Ok(String::from_utf8_lossy(&item[..]).into_owned()),
+                        Err(e) => Err(VerifierError::ServerResponseError(e.to_string())),
+                    },
+                    _ => Err(VerifierError::ApiServerError(format!(
+                        "Server response code {}",
+                        response.status()
+                    ))),
+                }
+            });
+        Box::new(ret)
     }
 }
