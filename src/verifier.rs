@@ -204,7 +204,7 @@ impl Verifier {
 
     fn api_request(form: &RequestForm) -> Box<Future<Item = String, Error = VerifierError>> {
         let mut client_builder = Client::build();
-//        client_builder = client_builder.timeout(Duration::from_secs(20));
+        //        client_builder = client_builder.timeout(Duration::from_secs(20));
         client_builder = client_builder.disable_timeout();
         let client = client_builder.finish();
 
