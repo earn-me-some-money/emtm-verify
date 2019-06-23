@@ -11,7 +11,6 @@ use futures::Future;
 
 use log::*;
 use serde::*;
-use std::time::Duration;
 
 pub struct Verifier {
     app_id: u64,
